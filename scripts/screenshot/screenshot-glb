@@ -1,0 +1,125 @@
+#!/usr/bin/env node
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const yargs_1 = __importDefault(require("yargs/yargs"));
+const file_server_1 = require("./file-server");
+const file_handler_1 = require("./file-handler");
+const prepare_app_options_1 = require("./prepare-app-options");
+const capture_screenshot_1 = require("./capture-screenshot");
+const defaults_1 = require("./defaults");
+const log_error_1 = require("./log-error");
+const argv = (0, yargs_1.default)(process.argv.slice(2)).options({
+    input: {
+        type: 'string',
+        alias: 'i',
+        describe: 'Input glTF 2.0 binary (GLB) filepath',
+        demandOption: true,
+    },
+    output: {
+        type: 'string',
+        alias: 'o',
+        describe: 'Output screenshot filepath',
+        demandOption: true,
+    },
+    color: {
+        type: 'string',
+        alias: 'c',
+        describe: 'Output image background color (defaults to transparent, accepts HEX or RGB)',
+    },
+    width: {
+        type: 'number',
+        alias: 'w',
+        describe: 'Output image width',
+        default: defaults_1.DEFAULT_WIDTH,
+    },
+    height: {
+        type: 'number',
+        alias: 'h',
+        describe: 'Output image height',
+        default: defaults_1.DEFAULT_HEIGHT,
+    },
+    image_format: {
+        type: 'string',
+        alias: 'f',
+        describe: "Output image format (defaults to 'image/png')",
+        default: defaults_1.DEFAULT_FORMAT,
+    },
+    image_quality: {
+        type: 'number',
+        alias: 'q',
+        describe: 'Quality of the output image',
+        default: defaults_1.DEFAULT_QUALITY,
+    },
+    timeout: {
+        type: 'number',
+        alias: 't',
+        describe: 'Timeout length in milliseconds',
+        default: defaults_1.DEFAULT_TIMEOUT_MILLISECONDS,
+    },
+    debug: {
+        type: 'boolean',
+        alias: 'd',
+        describe: 'Enable Debug Mode',
+        default: defaults_1.DEFAULT_DEBUG,
+    },
+    verbose: {
+        type: 'boolean',
+        alias: 'v',
+        describe: 'Enable verbose logging',
+        default: defaults_1.DEFAULT_VERBOSE_LOGGING,
+    },
+    model_viewer_path: {
+        type: 'string',
+        alias: 'p',
+        describe: 'A local path to a Model Viewer build',
+    },
+    model_viewer_version: {
+        type: 'string',
+        alias: '@',
+        describe: 'Model viewer version to be used. If nothing is passed defaults to latest',
+    },
+    model_viewer_attributes: {
+        type: 'string',
+        alias: 'm',
+        describe: 'Set <model-viewer> attributes by passing them as url params eg. exposure=2&environment-image=neutral',
+    },
+}).argv;
+(async () => {
+    async function closeProgram() {
+        await localServer.stop();
+        await fileHandler.destroy();
+        process.exit(processStatus);
+    }
+    const fileHandler = new file_handler_1.FileHandler();
+    const localServer = new file_server_1.FileServer(fileHandler.fileDirectory);
+    let options;
+    let processStatus = 0;
+    await localServer.start();
+    try {
+        options = await (0, prepare_app_options_1.prepareAppOptions)({
+            localServerPort: localServer.port,
+            fileHandler,
+            argv,
+        });
+    }
+    catch (error) {
+        (0, log_error_1.logError)(error);
+        processStatus = 1;
+    }
+    if (processStatus !== 0) {
+        await closeProgram();
+        return;
+    }
+    try {
+        await (0, capture_screenshot_1.captureScreenshot)(options);
+    }
+    catch (err) {
+        (0, log_error_1.logUnhandledError)(err);
+        processStatus = 1;
+    }
+    await closeProgram();
+})();
+//# sourceMappingURL=cli.js.map
